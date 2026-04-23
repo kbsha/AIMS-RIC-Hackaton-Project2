@@ -1,4 +1,4 @@
-# T2.3 · Grid Outage Forecaster + Appliance Prioritizer
+#Smart Grid Outage Forecaster + Appliance Prioritizer and prdictor By kibremoges Fenta
 **AIMS KTT Fellowship Hackathon 2026**
 
 Predict 24-hour grid outage probability and generate actionable load-shedding plans for SMEs — designed for low-bandwidth, offline-first, non-smartphone users in Rwanda.
