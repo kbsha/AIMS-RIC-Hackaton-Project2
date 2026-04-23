@@ -94,9 +94,27 @@ prioritizer.py::plan()
   Exception: critical protected during peak hours
       │
       ▼
-lite_ui.html   (forecast chart + appliance grid + SMS digest)
+lite_ui.html   (forecast chart + appliance grid + SMS digest)    but i also add index.html for the different options like github deployment , and for stremlite also for my hugiing face i just almost add 3 diferent file format and  content 
 ```
+This project is organized into three simple deployment modes so anyone can run it easily — whether on GitHub Pages, Streamlit, or Hugging Face Spaces.”
 
+Then explain:
+
+🌐 index.html → Deployment hub
+
+A landing page that lets users choose how they want to run the system (GitHub Pages, Streamlit, or Hugging Face demo)
+
+📊 lite_ui.html → Offline demo UI
+
+A lightweight dashboard that works fully in the browser without backend
+
+🧠 Streamlit app (app.py) → interactive ML version
+
+Full dynamic version for real forecasting and appliance planning
+
+🤗 Hugging Face Spaces version
+
+Public hosted version for judges to test instantly online but due to time contstrant i prefer the github model of my work , its complate version of all the project
 ---
 
 ## 🌍 Product & Business Design
