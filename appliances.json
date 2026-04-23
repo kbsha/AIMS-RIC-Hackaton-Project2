@@ -1,0 +1,82 @@
+[
+  {
+    "id": "fridge",
+    "name": "Commercial Refrigerator",
+    "category": "critical",
+    "watts_avg": 350,
+    "start_up_spike_w": 700,
+    "revenue_if_running_rwf_per_h": 2500
+  },
+  {
+    "id": "hair_dryer",
+    "name": "Hair Dryer (2\u00d7)",
+    "category": "critical",
+    "watts_avg": 2400,
+    "start_up_spike_w": 2500,
+    "revenue_if_running_rwf_per_h": 3000
+  },
+  {
+    "id": "clippers",
+    "name": "Electric Clippers (3\u00d7)",
+    "category": "critical",
+    "watts_avg": 120,
+    "start_up_spike_w": 150,
+    "revenue_if_running_rwf_per_h": 2000
+  },
+  {
+    "id": "water_pump",
+    "name": "Water Pump",
+    "category": "critical",
+    "watts_avg": 750,
+    "start_up_spike_w": 1500,
+    "revenue_if_running_rwf_per_h": 1500
+  },
+  {
+    "id": "lights",
+    "name": "LED Lights",
+    "category": "critical",
+    "watts_avg": 80,
+    "start_up_spike_w": 80,
+    "revenue_if_running_rwf_per_h": 1000
+  },
+  {
+    "id": "air_con",
+    "name": "Air Conditioner",
+    "category": "comfort",
+    "watts_avg": 1500,
+    "start_up_spike_w": 3000,
+    "revenue_if_running_rwf_per_h": 800
+  },
+  {
+    "id": "fan",
+    "name": "Standing Fan",
+    "category": "comfort",
+    "watts_avg": 75,
+    "start_up_spike_w": 80,
+    "revenue_if_running_rwf_per_h": 400
+  },
+  {
+    "id": "tv",
+    "name": "TV / Display Screen",
+    "category": "comfort",
+    "watts_avg": 150,
+    "start_up_spike_w": 160,
+    "revenue_if_running_rwf_per_h": 200
+  },
+  {
+    "id": "music",
+    "name": "Music System",
+    "category": "luxury",
+    "watts_avg": 200,
+    "start_up_spike_w": 220,
+    "revenue_if_running_rwf_per_h": 100
+  },
+  {
+    "id": "neon_sign",
+    "name": "Neon Sign",
+    "category": "luxury",
+    "watts_avg": 60,
+    "start_up_spike_w": 65,
+    "revenue_if_running_rwf_per_h": 50
+  }
+]

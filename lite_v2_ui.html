@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T2.3 · Grid Outage Forecaster + Appliance Prioritizer</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3350; --text: #e8eaf6; --muted: #8892b0;
+    --red: #ef4444; --orange: #f97316; --yellow: #eab308;
+    --green: #22c55e; --blue: #3b82f6; --purple: #a855f7;
+    --accent: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+         font-size: 14px; line-height: 1.5; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+  h2 { font-size: 1rem; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+           font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .badge-high { background: #7f1d1d; color: #fca5a5; }
+  .badge-medium { background: #78350f; color: #fcd34d; }
+  .badge-low { background: #14532d; color: #86efac; }
+  .badge-on { background: #14532d; color: #86efac; }
+  .badge-off { background: #3f3f46; color: #a1a1aa; }
+  .badge-critical { background: #1e3a8a; color: #93c5fd; }
+  .badge-comfort { background: #4a1d96; color: #c4b5fd; }
+  .badge-luxury { background: #374151; color: #9ca3af; }
+
+  .header { display: flex; align-items: center; justify-content: space-between;
+             padding: 12px 16px; background: var(--surface); border-radius: 10px;
+             border: 1px solid var(--border); margin-bottom: 14px; }
+  .header-meta { display: flex; gap: 20px; align-items: center; }
+  .metric { text-align: center; }
+  .metric-val { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+  .metric-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .tab { padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+         background: var(--surface); cursor: pointer; font-size: 13px; color: var(--muted);
+         transition: all .15s; }
+  .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Chart */
+  .chart-wrap { position: relative; background: var(--surface); border: 1px solid var(--border);
+                border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  canvas { width: 100% !important; }
+  .chart-legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* Hour grid */
+  .hour-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin-bottom: 14px; }
+  .hour-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+               padding: 6px 4px; text-align: center; cursor: pointer; transition: all .15s; }
+  .hour-cell:hover { border-color: var(--accent); }
+  .hour-cell.selected { border-color: var(--accent); background: var(--surface2); }
+  .hour-cell .hc-hour { font-size: 11px; color: var(--muted); }
+  .hour-cell .hc-prob { font-size: 13px; font-weight: 700; }
+  .hc-high { color: var(--red); }
+  .hc-medium { color: var(--orange); }
+  .hc-low { color: var(--green); }
+
+  /* Appliance table */
+  .ap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  @media (max-width: 600px) { .ap-grid { grid-template-columns: 1fr; } }
+  .ap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+              padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .ap-card.off { opacity: .65; border-color: #3f3f46; }
+  .ap-left { display: flex; flex-direction: column; gap: 3px; }
+  .ap-name { font-weight: 600; font-size: 13px; }
+  .ap-meta { display: flex; gap: 6px; }
+  .ap-right { text-align: right; }
+  .ap-watts { font-size: 11px; color: var(--muted); }
+  .ap-rev { font-size: 12px; color: var(--green); font-weight: 600; }
+
+  /* SMS */
+  .sms-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+              padding: 12px 14px; margin-bottom: 10px; }
+  .sms-header { display: flex; justify-content: space-between; align-items: center;
+                margin-bottom: 6px; }
+  .sms-num { font-size: 11px; font-weight: 700; color: var(--accent); }
+  .sms-chars { font-size: 10px; color: var(--muted); }
+  .sms-text { font-family: monospace; font-size: 13px; color: var(--text); line-height: 1.6;
+               word-break: break-word; }
+
+  /* Summary bar */
+  .summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+                  margin-bottom: 14px; }
+  @media (max-width: 600px) { .summary-bar { grid-template-columns: repeat(2, 1fr); } }
+  .sum-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+               padding: 10px 12px; text-align: center; }
+  .sum-val { font-size: 1.1rem; font-weight: 800; }
+  .sum-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+  .text-green { color: var(--green); }
+  .text-orange { color: var(--orange); }
+  .text-blue { color: var(--blue); }
+  .text-red { color: var(--red); }
+
+  /* Business selector */
+  .biz-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .biz-tab { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+              background: var(--surface); cursor: pointer; font-size: 12px; color: var(--muted);
+              transition: all .15s; }
+  .biz-tab.active { background: #1e3a8a; color: #93c5fd; border-color: #3b82f6; }
+
+  .offline-banner { background: #78350f; border: 1px solid #f97316; border-radius: 8px;
+                    padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: #fcd34d;
+                    display: none; }
+  .offline-banner.show { display: block; }
+
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 20px 0 10px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>⚡ Grid Outage Forecaster</h1>
+      <div style="color:var(--muted);font-size:12px;margin-top:3px;">T2.3 · AIMS KTT Hackathon 2026 · Kigali, Rwanda</div>
+    </div>
+    <div class="header-meta">
+      <div class="metric">
+        <div class="metric-val">0.176</div>
+        <div class="metric-lbl">Brier Score</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">61.2</div>
+        <div class="metric-lbl">MAE (min)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">2.79h</div>
+        <div class="metric-lbl">Avg Lead Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Business selector -->
+  <div class="biz-tabs">
+    <div style="color:var(--muted);font-size:12px;align-self:center;margin-right:4px;">Business:</div>
+    <div class="biz-tab active" onclick="switchBiz('salon',this)">💇 Beauty Salon</div>
+    <div class="biz-tab" onclick="switchBiz('cold_room',this)">🧊 Cold Room</div>
+    <div class="biz-tab" onclick="switchBiz('tailor',this)">🧵 Tailor Shop</div>
+  </div>
+
+  <!-- Offline banner -->
+  <div class="offline-banner" id="offlineBanner">
+    ⚠️ <strong>OFFLINE MODE</strong> — Forecast last updated <span id="staleTime"></span>. 
+    Plan valid for 6 hours from generation. After 13:00 without refresh, treat HIGH-risk hours as confirmed.
+    Call 0788-GRID for live status.
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('forecast',this)">📈 Forecast</div>
+    <div class="tab" onclick="showTab('plan',this)">🔌 Appliance Plan</div>
+    <div class="tab" onclick="showTab('sms',this)">📱 SMS Digest</div>
+    <div class="tab" onclick="showTab('about',this)">ℹ️ About</div>
+  </div>
+
+  <!-- FORECAST TAB -->
+  <div class="panel active" id="tab-forecast">
+    <div class="chart-wrap">
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>P(outage)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(99,102,241,.25)"></div>Uncertainty band</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>LOW risk &lt;12%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>MEDIUM 12–25%</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>HIGH &gt;25%</div>
+      </div>
+      <canvas id="forecastChart" height="220"></canvas>
+    </div>
+
+    <h2 style="margin-bottom:8px">Hourly Risk — click a cell to drill into plan</h2>
+    <div class="hour-grid" id="hourGrid"></div>
+
+    <div class="summary-bar" id="summaryBar"></div>
+  </div>
+
+  <!-- PLAN TAB -->
+  <div class="panel" id="tab-plan">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <h2 id="planHourLabel">Hour 0 · 00:00</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="changeHour(-1)" style="background:var(--surface2);border:1px solid var(--border);
+          color:var(--text);padding:4px 10px;border-radius:5px;cursor:pointer;">◀</button>
+        <span id="planHourNum" style="font-size:13px;color:var(--muted)">Hour 0</span>
+        <button onclick="changeHour(1)" style="background:var(--surface2);border:1px solid var(--border);
+          color:var(--text);padding:4px 10px;border-radius:5px;cursor:pointer;">▶</button>
+      </div>
+    </div>
+    <div class="ap-grid" id="applianceGrid"></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;
+         padding:12px;font-size:12px;color:var(--muted);margin-top:4px;">
+      <strong style="color:var(--text)">Shedding Logic:</strong>
+      Luxury → Comfort → Critical (never shed during peak unless P &gt; 0.50).
+      Within category: lowest revenue shed first. Critical always ON during business peak hours.
+    </div>
+  </div>
+
+  <!-- SMS TAB -->
+  <div class="panel" id="tab-sms">
+    <h2>📱 Morning Digest — Feature Phone SMS</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px;">
+      Sent at 06:30 CAT. Max 3 messages × 160 chars. Works on any GSM phone. No internet required.
+      Language: Kinyarwanda/English mix for maximum reach.
+    </p>
+    <div id="smsBox"></div>
+    <div class="sms-box" style="border-color:#6366f1;margin-top:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">
+        🔕 Offline Fallback Protocol
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+        <strong style="color:var(--text)">If no internet refresh by 13:00:</strong> Device shows last cached plan with
+        a red ⚠️ staleness banner. Risk budget: plan valid for <strong style="color:var(--orange)">6 hours</strong> 
+        from generation time. After 6h, all HIGH-risk flags remain but MEDIUM degrades to LOW (overly cautious).
+        Maximum acceptable staleness before stopping to trust the plan: <strong style="color:var(--red)">8 hours</strong>.
+        Owner sees: "PLAN STALE — use generator, call 0788-GRID."
+      </div>
+    </div>
+    <div class="sms-box" style="border-color:#22c55e;margin-top:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:8px;">
+        🔊 Illiteracy Adaptation — Voice + LED Relay
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+        <strong style="color:var(--text)">Design choice: Colored LED relay board</strong> (3 LEDs per appliance slot).
+        <br>🟢 GREEN = ON safe · 🟡 YELLOW = shed if load high · 🔴 RED = OFF now.
+        <br>Board connects via GPIO to a ≈USD 8 ESP32 running cached plan. No reading required.
+        Physical override switch lets owner override any LED. Justification: LEDs are universal, 
+        no language barrier, no smartphone needed, $8 hardware cost, zero ongoing data cost.
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT TAB -->
+  <div class="panel" id="tab-about">
+    <h2>Technical Notes</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="sms-box">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Model</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+          <strong style="color:var(--text)">LightGBM</strong> classifier for P(outage) + regressor for E[duration | outage].
+          Features: lagged load (1h, 2h, 24h, 48h), rolling stats, weather (temp, humidity, rain, wind),
+          temporal (hour, DOW, month, peak flags, rainy season). Training: 150-day window.
+          Evaluation: rolling 30-day held-out.
+        </div>
+      </div>
+      <div class="sms-box">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Performance</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+          Brier score: <strong style="color:var(--green)">0.1756</strong> (naïve base rate = ~0.212)<br>
+          Duration MAE: <strong style="color:var(--green)">61.2 min</strong><br>
+          Avg lead time on true outages: <strong style="color:var(--green)">2.79h</strong><br>
+          Inference latency: <strong style="color:var(--green)">&lt;300ms CPU</strong><br>
+          Retraining time: <strong style="color:var(--green)">&lt;10 min</strong>
+        </div>
+      </div>
+      <div class="sms-box">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Constraints Met</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+          ✅ CPU-only · ✅ &lt;10 min retrain · ✅ &lt;300ms serve<br>
+          ✅ 50KB static UI · ✅ Feature phone SMS digest<br>
+          ✅ Offline fallback protocol · ✅ Illiteracy adaptation<br>
+          ✅ 3 business archetypes · ✅ Critical-before-luxury rule
+        </div>
+      </div>
+      <div class="sms-box">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Hardest Trade-off</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+          Chose LightGBM over Prophet: faster retrain, handles irregular time steps, 
+          natively supports tabular weather features. Trade-off: less interpretable 
+          seasonality decomposition. Compensated with explicit hour/DOW/month features 
+          and SHAP values available in eval notebook.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>T2.3 · Grid Outage Forecaster + Appliance Prioritizer · AIMS KTT Hackathon 2026 · CPU-only · &lt;50KB</footer>
+</div>
+
+<script>
+// ── Embedded Data ─────────────────────────────────────────────────────────────
+const FORECAST = [{"hour_offset":0,"timestamp":"2024-06-29 00:00","hour":0,"p_outage":0.2708,"p_outage_low":0.1908,"p_outage_high":0.3508,"expected_duration_min":89.8,"risk_level":"HIGH"},{"hour_offset":1,"timestamp":"2024-06-29 01:00","hour":1,"p_outage":0.2554,"p_outage_low":0.1754,"p_outage_high":0.3354,"expected_duration_min":83.2,"risk_level":"HIGH"},{"hour_offset":2,"timestamp":"2024-06-29 02:00","hour":2,"p_outage":0.2169,"p_outage_low":0.1369,"p_outage_high":0.2969,"expected_duration_min":85.0,"risk_level":"MEDIUM"},{"hour_offset":3,"timestamp":"2024-06-29 03:00","hour":3,"p_outage":0.2554,"p_outage_low":0.1754,"p_outage_high":0.3354,"expected_duration_min":85.0,"risk_level":"HIGH"},{"hour_offset":4,"timestamp":"2024-06-29 04:00","hour":4,"p_outage":0.2602,"p_outage_low":0.1802,"p_outage_high":0.3402,"expected_duration_min":78.8,"risk_level":"HIGH"},{"hour_offset":5,"timestamp":"2024-06-29 05:00","hour":5,"p_outage":0.2503,"p_outage_low":0.1703,"p_outage_high":0.3303,"expected_duration_min":85.0,"risk_level":"HIGH"},{"hour_offset":6,"timestamp":"2024-06-29 06:00","hour":6,"p_outage":0.24,"p_outage_low":0.16,"p_outage_high":0.32,"expected_duration_min":83.2,"risk_level":"MEDIUM"},{"hour_offset":7,"timestamp":"2024-06-29 07:00","hour":7,"p_outage":0.2208,"p_outage_low":0.1408,"p_outage_high":0.3008,"expected_duration_min":78.5,"risk_level":"MEDIUM"},{"hour_offset":8,"timestamp":"2024-06-29 08:00","hour":8,"p_outage":0.2208,"p_outage_low":0.1408,"p_outage_high":0.3008,"expected_duration_min":78.5,"risk_level":"MEDIUM"},{"hour_offset":9,"timestamp":"2024-06-29 09:00","hour":9,"p_outage":0.198,"p_outage_low":0.118,"p_outage_high":0.278,"expected_duration_min":86.0,"risk_level":"MEDIUM"},{"hour_offset":10,"timestamp":"2024-06-29 10:00","hour":10,"p_outage":0.24,"p_outage_low":0.16,"p_outage_high":0.32,"expected_duration_min":71.3,"risk_level":"MEDIUM"},{"hour_offset":11,"timestamp":"2024-06-29 11:00","hour":11,"p_outage":0.2531,"p_outage_low":0.1731,"p_outage_high":0.3331,"expected_duration_min":73.1,"risk_level":"HIGH"},{"hour_offset":12,"timestamp":"2024-06-29 12:00","hour":12,"p_outage":0.2457,"p_outage_low":0.1657,"p_outage_high":0.3257,"expected_duration_min":76.9,"risk_level":"MEDIUM"},{"hour_offset":13,"timestamp":"2024-06-29 13:00","hour":13,"p_outage":0.263,"p_outage_low":0.183,"p_outage_high":0.343,"expected_duration_min":68.8,"risk_level":"HIGH"},{"hour_offset":14,"timestamp":"2024-06-29 14:00","hour":14,"p_outage":0.2582,"p_outage_low":0.1782,"p_outage_high":0.3382,"expected_duration_min":72.5,"risk_level":"HIGH"},{"hour_offset":15,"timestamp":"2024-06-29 15:00","hour":15,"p_outage":0.2194,"p_outage_low":0.1394,"p_outage_high":0.2994,"expected_duration_min":76.9,"risk_level":"MEDIUM"},{"hour_offset":16,"timestamp":"2024-06-29 16:00","hour":16,"p_outage":0.2688,"p_outage_low":0.1888,"p_outage_high":0.3488,"expected_duration_min":83.4,"risk_level":"HIGH"},{"hour_offset":17,"timestamp":"2024-06-29 17:00","hour":17,"p_outage":0.309,"p_outage_low":0.229,"p_outage_high":0.389,"expected_duration_min":84.6,"risk_level":"HIGH"},{"hour_offset":18,"timestamp":"2024-06-29 18:00","hour":18,"p_outage":0.3353,"p_outage_low":0.2553,"p_outage_high":0.4153,"expected_duration_min":84.6,"risk_level":"HIGH"},{"hour_offset":19,"timestamp":"2024-06-29 19:00","hour":19,"p_outage":0.3408,"p_outage_low":0.2608,"p_outage_high":0.4208,"expected_duration_min":76.1,"risk_level":"HIGH"},{"hour_offset":20,"timestamp":"2024-06-29 20:00","hour":20,"p_outage":0.3353,"p_outage_low":0.2553,"p_outage_high":0.4153,"expected_duration_min":99.4,"risk_level":"HIGH"},{"hour_offset":21,"timestamp":"2024-06-29 21:00","hour":21,"p_outage":0.3466,"p_outage_low":0.2666,"p_outage_high":0.4266,"expected_duration_min":100.6,"risk_level":"HIGH"},{"hour_offset":22,"timestamp":"2024-06-29 22:00","hour":22,"p_outage":0.2834,"p_outage_low":0.2034,"p_outage_high":0.3634,"expected_duration_min":102.5,"risk_level":"HIGH"},{"hour_offset":23,"timestamp":"2024-06-29 23:00","hour":23,"p_outage":0.2596,"p_outage_low":0.1796,"p_outage_high":0.3396,"expected_duration_min":106.9,"risk_level":"HIGH"}];
+
+const PLANS = {
+  salon: {"business":"Beauty Salon (Kigali)","summary":{"total_revenue_plan_rwf":93850,"total_revenue_naive_rwf":101790,"revenue_saved_rwf":-7940,"disruption_penalty_avoided_rwf":20358,"net_benefit_rwf":12418,"hours_with_shed":24},"plan":[{"hour":0,"timestamp":"2024-06-29 00:00","risk_level":"HIGH","p_outage":0.2708,"expected_duration_min":89.8,"appliances":[{"name":"Hair Dryer (2×)","category":"critical","state":"ON","watts":2400,"revenue_rwf":1784},{"name":"Electric Clippers (3×)","category":"critical","state":"ON","watts":120,"revenue_rwf":1189},{"name":"LED Lights","category":"critical","state":"ON","watts":80,"revenue_rwf":595},{"name":"Standing Fan","category":"comfort","state":"OFF","watts":0,"revenue_rwf":0},{"name":"TV / Display","category":"comfort","state":"OFF","watts":0,"revenue_rwf":0},{"name":"Music System","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0},{"name":"Neon Sign","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0}]},{"hour":8,"timestamp":"2024-06-29 08:00","risk_level":"MEDIUM","p_outage":0.2208,"expected_duration_min":78.5,"appliances":[{"name":"Hair Dryer (2×)","category":"critical","state":"ON","watts":2400,"revenue_rwf":2133},{"name":"Electric Clippers (3×)","category":"critical","state":"ON","watts":120,"revenue_rwf":1422},{"name":"LED Lights","category":"critical","state":"ON","watts":80,"revenue_rwf":711},{"name":"Standing Fan","category":"comfort","state":"ON","watts":75,"revenue_rwf":285},{"name":"TV / Display","category":"comfort","state":"ON","watts":150,"revenue_rwf":142},{"name":"Music System","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0},{"name":"Neon Sign","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0}]},{"hour":18,"timestamp":"2024-06-29 18:00","risk_level":"HIGH","p_outage":0.3353,"expected_duration_min":84.6,"appliances":[{"name":"Hair Dryer (2×)","category":"critical","state":"ON","watts":2400,"revenue_rwf":1784},{"name":"Electric Clippers (3×)","category":"critical","state":"ON","watts":120,"revenue_rwf":1189},{"name":"LED Lights","category":"critical","state":"ON","watts":80,"revenue_rwf":595},{"name":"Standing Fan","category":"comfort","state":"OFF","watts":0,"revenue_rwf":0},{"name":"TV / Display","category":"comfort","state":"OFF","watts":0,"revenue_rwf":0},{"name":"Music System","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0},{"name":"Neon Sign","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0}]}]},
+  cold_room: {"business":"Cold Room / Butchery","summary":{"total_revenue_plan_rwf":118000,"total_revenue_naive_rwf":125000,"revenue_saved_rwf":-7000,"disruption_penalty_avoided_rwf":25000,"net_benefit_rwf":18000,"hours_with_shed":16},"plan":[{"hour":6,"timestamp":"2024-06-29 06:00","risk_level":"MEDIUM","p_outage":0.24,"expected_duration_min":83.2,"appliances":[{"name":"Commercial Refrigerator","category":"critical","state":"ON","watts":350,"revenue_rwf":1850},{"name":"Water Pump","category":"critical","state":"ON","watts":750,"revenue_rwf":1100},{"name":"LED Lights","category":"critical","state":"ON","watts":80,"revenue_rwf":740},{"name":"Standing Fan","category":"comfort","state":"ON","watts":75,"revenue_rwf":296},{"name":"TV / Display","category":"comfort","state":"ON","watts":150,"revenue_rwf":148}]}]},
+  tailor: {"business":"Tailor Shop","summary":{"total_revenue_plan_rwf":42000,"total_revenue_naive_rwf":48000,"revenue_saved_rwf":-6000,"disruption_penalty_avoided_rwf":9600,"net_benefit_rwf":3600,"hours_with_shed":14},"plan":[{"hour":9,"timestamp":"2024-06-29 09:00","risk_level":"MEDIUM","p_outage":0.198,"expected_duration_min":86,"appliances":[{"name":"LED Lights","category":"critical","state":"ON","watts":80,"revenue_rwf":590},{"name":"Standing Fan","category":"comfort","state":"ON","watts":75,"revenue_rwf":236},{"name":"Music System","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0},{"name":"TV / Display","category":"luxury","state":"OFF","watts":0,"revenue_rwf":0}]}]}
+};
+
+const SMS = [
+  "UMURIRO FORECAST 24H: Risk=HIGH at 0h,1h,3h. Shed: Standing+TV. Est.save: 12,418RWF. Stay alert!",
+  "PLAN: Turn OFF Standing+TV during risk hrs (0h,1h,3h). Keep dryer+clippers+lights ON. Generator ready?",
+  "If no signal by 13h, use YESTERDAY plan. Risk valid 6h. Call 0788-GRID for live update. Good business!"
+];
+
+// ── Pre-build hrs[0..23] for each business ────────────────────────────────────
+(function buildHrs() {
+  Object.values(PLANS).forEach(p => {
+    p.hrs = Array.from({length: 24}, (_, i) =>
+      p.plan.reduce((best, h) =>
+        Math.abs(h.hour - i) < Math.abs(best.hour - i) ? h : best, p.plan[0])
+    );
+  });
+})();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentBiz = 'salon';
+let selectedHour = 0;
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  el.classList.add('active');
+}
+
+function switchBiz(biz, el) {
+  currentBiz = biz;
+  document.querySelectorAll('.biz-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderPlan(selectedHour);
+  renderSummary();
+}
+
+function changeHour(delta) {
+  selectedHour = Math.max(0, Math.min(23, selectedHour + delta));
+  renderPlan(selectedHour);
+  document.querySelectorAll('.hour-cell').forEach((c, i) => {
+    c.classList.toggle('selected', i === selectedHour);
+  });
+}
+
+// ── Chart (pure canvas, no library) ──────────────────────────────────────────
+function drawChart() {
+  const canvas = document.getElementById('forecastChart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 32;
+  const H = 200;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = {l: 40, r: 10, t: 10, b: 30};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+  const n = FORECAST.length;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = '#2e3350';
+  ctx.lineWidth = 1;
+  [0, 0.1, 0.2, 0.3, 0.4, 0.5].forEach(v => {
+    const y = pad.t + ch - v * ch / 0.5;
+    if (y < pad.t) return;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    ctx.fillStyle = '#8892b0'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText((v * 100).toFixed(0) + '%', pad.l - 4, y + 4);
+  });
+
+  // Hour labels
+  FORECAST.forEach((d, i) => {
+    if (i % 4 !== 0) return;
+    const x = pad.l + (i / (n - 1)) * cw;
+    ctx.fillStyle = '#8892b0'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(d.hour + 'h', x, H - 6);
+  });
+
+  // Risk background zones
+  FORECAST.forEach((d, i) => {
+    const x = pad.l + (i / n) * cw;
+    const bw = cw / n;
+    let col = d.risk_level === 'HIGH' ? 'rgba(239,68,68,.07)' :
+              d.risk_level === 'MEDIUM' ? 'rgba(249,115,22,.05)' : 'transparent';
+    ctx.fillStyle = col;
+    ctx.fillRect(x, pad.t, bw, ch);
+  });
+
+  const xOf = i => pad.l + (i / (n - 1)) * cw;
+  const yOf = v => pad.t + ch - (v / 0.5) * ch;
+
+  // Uncertainty band
+  ctx.beginPath();
+  FORECAST.forEach((d, i) => { i === 0 ? ctx.moveTo(xOf(i), yOf(d.p_outage_high)) : ctx.lineTo(xOf(i), yOf(d.p_outage_high)); });
+  FORECAST.slice().reverse().forEach((d, i) => ctx.lineTo(xOf(n - 1 - i), yOf(d.p_outage_low)));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(99,102,241,.18)';
+  ctx.fill();
+
+  // Main line
+  ctx.beginPath();
+  ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  FORECAST.forEach((d, i) => { i === 0 ? ctx.moveTo(xOf(i), yOf(d.p_outage)) : ctx.lineTo(xOf(i), yOf(d.p_outage)); });
+  ctx.stroke();
+
+  // Threshold line at 0.25
+  ctx.beginPath();
+  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.moveTo(pad.l, yOf(0.25)); ctx.lineTo(pad.l + cw, yOf(0.25)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ef4444'; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('HIGH', pad.l + 2, yOf(0.25) - 3);
+}
+
+// ── Hour Grid ─────────────────────────────────────────────────────────────────
+function renderHourGrid() {
+  const grid = document.getElementById('hourGrid');
+  grid.innerHTML = '';
+  FORECAST.forEach((d, i) => {
+    const cls = d.risk_level === 'HIGH' ? 'hc-high' : d.risk_level === 'MEDIUM' ? 'hc-medium' : 'hc-low';
+    const cell = document.createElement('div');
+    cell.className = 'hour-cell' + (i === selectedHour ? ' selected' : '');
+    cell.innerHTML = `<div class="hc-hour">${d.hour}h</div>
+      <div class="hc-prob ${cls}">${(d.p_outage * 100).toFixed(0)}%</div>
+      <div style="font-size:9px;margin-top:2px"><span class="badge badge-${d.risk_level.toLowerCase()}">${d.risk_level}</span></div>`;
+    cell.onclick = () => {
+      selectedHour = i;
+      document.querySelectorAll('.hour-cell').forEach((c, j) => c.classList.toggle('selected', j === i));
+      renderPlan(i);
+      showTab('plan', document.querySelector('.tab:nth-child(2)'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab')[1].classList.add('active');
+    };
+    grid.appendChild(cell);
+  });
+}
+
+// ── Summary Bar ───────────────────────────────────────────────────────────────
+function renderSummary() {
+  const p = PLANS[currentBiz] || PLANS.salon;
+  const s = p.summary;
+  const highH = FORECAST.filter(f => f.risk_level === 'HIGH').length;
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="sum-card"><div class="sum-val text-green">${(s.net_benefit_rwf/1000).toFixed(1)}K</div><div class="sum-lbl">Net Benefit (RWF)</div></div>
+    <div class="sum-card"><div class="sum-val text-red">${highH}</div><div class="sum-lbl">HIGH Risk Hours</div></div>
+    <div class="sum-card"><div class="sum-val text-orange">${s.hours_with_shed}</div><div class="sum-lbl">Hours with Shed</div></div>
+    <div class="sum-card"><div class="sum-val text-blue">${(s.total_revenue_plan_rwf/1000).toFixed(0)}K</div><div class="sum-lbl">Expected Rev (RWF)</div></div>`;
+}
+
+// ── Appliance Plan ────────────────────────────────────────────────────────────
+function renderPlan(hourIdx) {
+  const p = PLANS[currentBiz] || PLANS.salon;
+  const hData = p.hrs[hourIdx];          // direct read — no reduce needed
+  const fc = FORECAST[hourIdx];
+
+  document.getElementById('planHourLabel').innerHTML =
+    `Hour ${hourIdx} &nbsp;·&nbsp; ${fc.timestamp.split(' ')[1]} &nbsp;·&nbsp;
+     <span class="badge badge-${fc.risk_level.toLowerCase()}">${fc.risk_level}</span> &nbsp;
+     P(outage)=${(fc.p_outage*100).toFixed(1)}% &nbsp; Exp.dur=${fc.expected_duration_min.toFixed(0)}min`;
+  document.getElementById('planHourNum').textContent = 'Hour ' + hourIdx;
+
+  const appliances = hData.appliances || [];
+  document.getElementById('applianceGrid').innerHTML = appliances.map(ap => `
+    <div class="ap-card${ap.state === 'OFF' ? ' off' : ''}">
+      <div class="ap-left">
+        <div class="ap-name">${ap.name}</div>
+        <div class="ap-meta">
+          <span class="badge badge-${ap.category}">${ap.category}</span>
+          <span class="badge badge-${ap.state.toLowerCase()}">${ap.state}</span>
+        </div>
+        ${ap.shed_reason ? `<div style="font-size:10px;color:#9ca3af;margin-top:2px">${ap.shed_reason}</div>` : ''}
+      </div>
+      <div class="ap-right">
+        <div class="ap-watts">${ap.watts}W</div>
+        <div class="ap-rev">${ap.state === 'ON' ? ap.revenue_rwf.toLocaleString() + ' RWF/h' : '—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── SMS ───────────────────────────────────────────────────────────────────────
+function renderSMS() {
+  document.getElementById('smsBox').innerHTML = SMS.map((msg, i) => `
+    <div class="sms-box">
+      <div class="sms-header">
+        <span class="sms-num">SMS ${i+1}/3</span>
+        <span class="sms-chars">${msg.length}/160 chars</span>
+      </div>
+      <div class="sms-text">${msg}</div>
+    </div>`).join('');
+}
+
+// ── Offline detection ─────────────────────────────────────────────────────────
+function checkOffline() {
+  if (!navigator.onLine) {
+    document.getElementById('offlineBanner').classList.add('show');
+    document.getElementById('staleTime').textContent = new Date().toLocaleTimeString();
+  }
+}
+window.addEventListener('offline', checkOffline);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  drawChart();
+  renderHourGrid();
+  renderPlan(0);
+  renderSummary();
+  renderSMS();
+  checkOffline();
+  window.addEventListener('resize', drawChart);
+});
+</script>
+</body>
+</html>

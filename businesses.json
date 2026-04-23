@@ -1,0 +1,74 @@
+[
+  {
+    "id": "salon",
+    "name": "Beauty Salon (Kigali)",
+    "archetype": "salon",
+    "description": "4-chair salon, open 07:00\u201320:00, 6 days/week",
+    "generator_kva": 2.0,
+    "appliance_ids": [
+      "hair_dryer",
+      "clippers",
+      "lights",
+      "fan",
+      "tv",
+      "music",
+      "neon_sign"
+    ],
+    "peak_hours": [
+      8,
+      9,
+      10,
+      15,
+      16,
+      17,
+      18
+    ],
+    "monthly_revenue_rwf": 1800000
+  },
+  {
+    "id": "cold_room",
+    "name": "Cold Room / Butchery",
+    "archetype": "cold_room",
+    "description": "Meat storage + retail, 05:00\u201322:00, 7 days",
+    "generator_kva": 3.5,
+    "appliance_ids": [
+      "fridge",
+      "lights",
+      "water_pump",
+      "fan",
+      "tv"
+    ],
+    "peak_hours": [
+      5,
+      6,
+      7,
+      17,
+      18,
+      19,
+      20
+    ],
+    "monthly_revenue_rwf": 2500000
+  },
+  {
+    "id": "tailor",
+    "name": "Tailor Shop",
+    "archetype": "tailor",
+    "description": "3 sewing machines + ironing, 08:00\u201318:00, 6 days",
+    "generator_kva": 1.5,
+    "appliance_ids": [
+      "lights",
+      "fan",
+      "music",
+      "tv"
+    ],
+    "peak_hours": [
+      9,
+      10,
+      11,
+      14,
+      15,
+      16
+    ],
+    "monthly_revenue_rwf": 900000
+  }
+]
