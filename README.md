@@ -172,5 +172,5 @@ MIT License — see LICENSE file.
 - [x] `digest_spec.md` — Product & Business artifact with real numbers
 - [x] `process_log.md` — timeline + LLM use declared
 - [x] `SIGNED.md` — honor code signed
-- [ ] 4-minute video URL (to be added)
-- [ ] Hugging Face model card link (to be added)
+- [ ] 4-minute video URL (https://youtu.be/Xmm6M-opGPk?si=yWFMDnWHDJgMcEGo)
+- [ ] Hugging Face model card link (https://huggingface.co/spaces/KB-Infinity-Tech/AIMSRICHackatonDay2Deployed)
